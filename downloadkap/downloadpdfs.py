@@ -42,9 +42,11 @@ class ThreadGetURLs(Thread):
 
                 disclosureIndex = d.get('basic').get('disclosureIndex')
 
-
+                #Add pdf url for generated PDF file of the announcment
                 link = 'https://www.kap.org.tr/tr/BildirimPdf/'+str(disclosureIndex)
-                self.downloadPdfUrlsQueue.put({'url':link,'directory':(publishDate + '/' + str(disclosureIndex))})
+                self.downloadPdfUrlsQueue.put({'url':link,'directory':(publishDate + '/' + str(disclosureIndex)),'fileName': str(disclosureIndex)})
+
+
                 if attachmentCount > 0:
                     numberOfAttachments += attachmentCount
                     link = "https://www.kap.org.tr/en/Bildirim/" + str(disclosureIndex)
@@ -67,9 +69,9 @@ class ThreadGetURLs(Thread):
             "//a[contains(@class,'modal-attachment')]")  # get all a tags with class modal-attachment
 
         for elem in elements:
-            file_name = elem.text
+            fileName = elem.text
             link = 'https://www.kap.org.tr' + elem.get('href')
-            self.downloadPdfUrlsQueue.put({'url': link, 'directory': page['directory'], 'fileName': file_name})
+            self.downloadPdfUrlsQueue.put({'url': link, 'directory': page['directory'], 'fileName': fileName})
 
     def run(self):
         click.echo("Started scraping pdf attachments for: {}".format(self.start_date))
@@ -82,7 +84,8 @@ class ThreadGetURLs(Thread):
                 self.documentsWithAttachmentQueue.task_done()
             except:
                 break
-        click.echo("Successfully scraped {} of pdf attachments!".format(numberOfAttachments))
+        if numberOfAttachments >0:
+            click.echo("For {} successfully scraped {} of pdf attachments!".format(self.start_date,numberOfAttachments))
 
 
 class DownloadThread(Thread):
@@ -93,13 +96,13 @@ class DownloadThread(Thread):
     def __init__(self, downloadPdfUrlsQueue, path):
         Thread.__init__(self)
         self.downloadPdfUrlsQueue = downloadPdfUrlsQueue
-        self.base_path = path
+        self.basePath = path
 
-    def downloadFile(self, link, filename, path):
+    def downloadFile(self, link, fileName, path):
         try:
             if not os.path.exists(path):
                 os.makedirs(path)
-            downloadFile = path + "/" + filename
+            downloadFile = path + "/" + fileName
             response = requests.get(link, allow_redirects=False)
 
             with open(downloadFile, "wb") as myPdfFile:
@@ -120,7 +123,7 @@ class DownloadThread(Thread):
                 time.sleep(1)  # trying to avoid to be blocked by server
                 document = self.downloadPdfUrlsQueue.get(block=False)
                 click.echo("\nStarted downloading from : {}".format(document['url']))
-                self.downloadFile(document['url'], document['fileName'], self.base_path + '/' + document['directory'])
+                self.downloadFile(document['url'], document['fileName'], self.basePath + '/' + document['directory'])
                 if (DownloadThread.counter > 0 and DownloadThread.counter % 20 == 0):
                     click.echo("After every 20 downloads wait for 2 minutes to avoid blockade!")
                     DownloadThread.downloadable = False
@@ -128,7 +131,7 @@ class DownloadThread(Thread):
                     DownloadThread.downloadable = True
                 self.downloadPdfUrlsQueue.task_done()
                 click.echo("Successfully downloaded to: {}".format(
-                    self.base_path + '/' + document['directory'] + '/' + document['fileName']))
+                    self.basePath + '/' + document['directory'] + '/' + document['fileName']))
 
 
             except queue.Empty:
@@ -140,7 +143,6 @@ class DownloadThread(Thread):
                 click.echo(document)
                 self.downloadPdfUrlsQueue.put(document)
                 self.run()
-                break
 
 
 def start_download(start_date, end_date, path):
@@ -159,7 +161,7 @@ def start_download(start_date, end_date, path):
         t.join()
 
     downloadThreads = [] #downloading threads
-    for i in range(1): #with more than one thread probably downloading  will be blocked
+    for i in range(1): #with more than one download thread probably downloading  will be blocked
         dt = DownloadThread(downloadPdfUrlsQueue, path)
         dt.setDaemon(True)
         dt.start()
@@ -167,4 +169,3 @@ def start_download(start_date, end_date, path):
 
     for dt in downloadThreads:
         dt.join()
-
