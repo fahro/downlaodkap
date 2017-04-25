@@ -1,0 +1,7 @@
+.DS_Store
+*.egg-info
+*.pyc
+dist/*
+build/*
+Downloads/*
+venv/*
