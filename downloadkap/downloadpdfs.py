@@ -44,7 +44,7 @@ class ThreadGetURLs(Thread):
 
                 #Add pdf url for generated PDF file of the announcment
                 link = 'https://www.kap.org.tr/tr/BildirimPdf/'+str(disclosureIndex)
-                self.downloadPdfUrlsQueue.put({'url':link,'directory':(publishDate + '/' + str(disclosureIndex)),'fileName': str(disclosureIndex)})
+                self.downloadPdfUrlsQueue.put({'url':link,'directory':(publishDate + '/' + str(disclosureIndex)),'fileName': (str(disclosureIndex)+'.pdf')})
 
 
                 if attachmentCount > 0:
